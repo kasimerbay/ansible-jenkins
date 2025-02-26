@@ -1,0 +1,89 @@
+---
+- name: Install Firewalld Service
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+
+- name: Start Firewalld Service
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: yes
+
+- name: Open http and https
+  ansible.builtin.command:
+    cmd: "{{ item }}"
+  loop:
+    - firewall-cmd --permanent --add-service=http
+    - firewall-cmd --permanent --add-service=https
+    - firewall-cmd --permanent --add-port={{ jenkins_port }}/tcp
+    - firewall-cmd --reload
+
+- name: Install Java
+  ansible.builtin.package:
+    name: "{{ java_package }}"
+    state: present
+
+- name: Configure Java alternatives
+  ansible.builtin.alternatives:
+    name: java
+    path: "{{ java_bin_path }}"
+    link: /usr/bin/java
+
+- name: Add Jenkins Repository
+  ansible.builtin.get_url:
+    url: "{{ jenkins_repo_url }}"
+    dest: /etc/yum.repos.d/jenkins.repo
+
+- name: Import Jenkins Repository Key
+  ansible.builtin.rpm_key:
+    key: "{{ jenkins_repo_key }}"
+    state: present
+
+- name: Check if Jenkins is installed
+  ansible.builtin.stat:
+    path: /usr/share/java/jenkins.war
+  register: jenkins_installed
+
+- name: Stop Jenkins service if installed
+  ansible.builtin.service:
+    name: jenkins
+    state: stopped
+  when: jenkins_installed.stat.exists
+
+- name: Backup Existing Jenkins Configurations
+  ansible.builtin.shell: cp -rp /var/lib/jenkins /var/lib/jenkins_{{ jenkins_version }}_{{ ansible_date_time.iso8601 | regex_replace(':', '-') }}
+  when: jenkins_installed.stat.exists
+
+- name: Install specific version of Jenkins
+  ansible.builtin.package:
+    name: "jenkins-{{ jenkins_version }}"
+    state: present
+
+- name: Start and Enable Jenkins
+  ansible.builtin.service:
+    name: jenkins
+    state: started
+    enabled: yes
+
+- name: Wait for Jenkins to start up
+  ansible.builtin.wait_for:
+    port: "{{ jenkins_port }}"
+    delay: 30
+    timeout: 300
+
+- name: Check if initial password exists
+  ansible.builtin.stat:
+    path: /var/lib/jenkins/secrets/initialAdminPassword
+  register: init_pass
+
+- name: Get Jenkins initial admin password
+  ansible.builtin.command: cat /var/lib/jenkins/secrets/initialAdminPassword
+  register: jenkins_initial_password
+  changed_when: false
+  when: init_pass.stat.exists
+
+- name: Display Jenkins initial admin password
+  ansible.builtin.debug:
+    var: jenkins_initial_password.stdout
+  when: init_pass.stat.exists

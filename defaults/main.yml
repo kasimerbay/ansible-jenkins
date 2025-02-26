@@ -1,0 +1,12 @@
+---
+# Java configuration
+java_version: "17"
+java_package: "java-{{ java_version }}-openjdk-devel"
+java_home: "/usr/lib/jvm/java-{{ java_version }}-openjdk"
+java_bin_path: "{{ java_home }}/bin/java"
+
+# Jenkins configuration
+jenkins_version: "2.479.3"
+jenkins_repo_url: "https://pkg.jenkins.io/redhat-stable/jenkins.repo"
+jenkins_repo_key: "https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key"
+jenkins_port: 8080
