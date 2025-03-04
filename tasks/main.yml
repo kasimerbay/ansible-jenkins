@@ -1,25 +1,28 @@
 ---
-- name: Install Firewalld Service
-  ansible.builtin.package:
-    name: firewalld
-    state: present
+# - name: Install Firewalld Service
+#   ansible.builtin.package:
+#     name: firewalld
+#     state: present
+#   register: firewalld_installed
 
-- name: Start Firewalld Service
-  ansible.builtin.service:
-    name: firewalld
-    state: started
-    enabled: yes
+# - name: Start Firewalld Service
+#   ansible.builtin.service:
+#     name: firewalld
+#     state: started
+#     enabled: yes
+#   register: firewalld_started
 
-- name: Open http and https
-  ansible.builtin.command:
-    cmd: "{{ item }}"
-  loop:
-    - firewall-cmd --permanent --add-service=http
-    - firewall-cmd --permanent --add-service=https
-    - firewall-cmd --permanent --add-port={{ jenkins_port }}/tcp
-    - firewall-cmd --reload
+# - name: Open http and https
+#   ansible.builtin.command:
+#     cmd: "{{ item }}"
+#   loop:
+#     - firewall-cmd --permanent --add-service=http
+#     - firewall-cmd --permanent --add-service=https
+#     - firewall-cmd --permanent --add-port={{ jenkins_port }}/tcp
+#     - firewall-cmd --reload
+#   when: firewalld_installed.changed
 
-- name: Install Java
+- name: Install Java {{ java_version }}
   ansible.builtin.package:
     name: "{{ java_package }}"
     state: present
@@ -40,25 +43,16 @@
     key: "{{ jenkins_repo_key }}"
     state: present
 
-- name: Check if Jenkins is installed
-  ansible.builtin.stat:
-    path: /usr/share/java/jenkins.war
-  register: jenkins_installed
-
-- name: Stop Jenkins service if installed
-  ansible.builtin.service:
-    name: jenkins
-    state: stopped
-  when: jenkins_installed.stat.exists
-
 - name: Backup Existing Jenkins Configurations
   ansible.builtin.shell: cp -rp /var/lib/jenkins /var/lib/jenkins_{{ jenkins_version }}_{{ ansible_date_time.iso8601 | regex_replace(':', '-') }}
-  when: jenkins_installed.stat.exists
+  register: jenkins_backup
+  when: backup
 
 - name: Install specific version of Jenkins
   ansible.builtin.package:
     name: "jenkins-{{ jenkins_version }}"
     state: present
+  register: jenkins_installed
 
 - name: Start and Enable Jenkins
   ansible.builtin.service:
@@ -69,7 +63,7 @@
 - name: Wait for Jenkins to start up
   ansible.builtin.wait_for:
     port: "{{ jenkins_port }}"
-    delay: 30
+    delay: 20
     timeout: 300
 
 - name: Check if initial password exists
@@ -87,3 +81,7 @@
   ansible.builtin.debug:
     var: jenkins_initial_password.stdout
   when: init_pass.stat.exists
+
+- name: Wait for inital Jenkins Setup
+  ansible.builtin.pause:
+    prompt: "Please setup Jenkins and press Enter to continue"

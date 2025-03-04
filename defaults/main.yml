@@ -10,3 +10,5 @@ jenkins_version: "2.479.3"
 jenkins_repo_url: "https://pkg.jenkins.io/redhat-stable/jenkins.repo"
 jenkins_repo_key: "https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key"
 jenkins_port: 8080
+jenkins_base_url: "{{ ansible_ssh_host }}:{{ jenkins_port }}"
+backup: true
